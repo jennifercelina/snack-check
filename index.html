@@ -1,0 +1,1374 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="theme-color" content="#DCE775"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="SnackCheck"/>
+<meta name="description" content="Scanne Lebensmittel und analysiere Inhaltsstoffe wissenschaftlich"/>
+<title>SnackCheck</title>
+<link rel="manifest" href="./public/manifest.json"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
+<style>
+:root {
+  --y: #DCE775;
+  --y2: #c8d94e;
+  --y-glow: rgba(220,231,117,0.18);
+  --y-soft: rgba(220,231,117,0.07);
+  --bg: #0e0e0e;
+  --bg1: #161616;
+  --bg2: #1e1e1e;
+  --bg3: #262626;
+  --border: rgba(255,255,255,0.06);
+  --border-y: rgba(220,231,117,0.2);
+  --text: #f2f2f2;
+  --muted: #777;
+  --dim: #444;
+  --green: #6efaaa;
+  --green-bg: rgba(110,250,170,0.08);
+  --yellow: #ffe44d;
+  --yellow-bg: rgba(255,228,77,0.08);
+  --red: #ff4f4f;
+  --red-bg: rgba(255,79,79,0.08);
+  --orange: #ff8c42;
+  --r: 12px;
+  --r2: 20px;
+  --pill: 999px;
+  --shadow: 0 8px 32px rgba(0,0,0,0.5);
+  --hh: 58px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bot: env(safe-area-inset-bottom, 0px);
+  --ease: cubic-bezier(0.4,0,0.2,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px;-webkit-text-size-adjust:100%}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+button{cursor:pointer;font-family:inherit;border:none;background:none;color:inherit}
+input{font-family:inherit}
+img{max-width:100%}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+:focus-visible{outline:2px solid var(--y);outline-offset:2px}
+
+/* ── HEADER ── */
+.hdr{
+  position:fixed;top:0;left:0;right:0;
+  height:calc(var(--hh) + var(--safe-top));
+  padding-top:var(--safe-top);
+  background:rgba(14,14,14,0.85);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+  z-index:100;
+}
+.hdr-inner{
+  display:flex;align-items:center;justify-content:space-between;
+  height:var(--hh);padding:0 18px;
+  max-width:600px;margin:0 auto;
+}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-badge{
+  width:32px;height:32px;background:var(--y);color:#111;
+  font-family:'Syne',sans-serif;font-weight:800;font-size:15px;
+  border-radius:9px;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;letter-spacing:-0.5px;
+}
+.logo-name{font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:var(--text);letter-spacing:-0.5px}
+.hdr-right{display:flex;gap:8px;align-items:center}
+.btn-lang{
+  height:30px;padding:0 11px;
+  border:1px solid var(--border);border-radius:var(--pill);
+  font-size:11px;font-weight:600;color:var(--muted);
+  letter-spacing:.5px;transition:.2s var(--ease);
+}
+.btn-lang:hover{border-color:var(--y);color:var(--y)}
+.btn-icon{
+  width:34px;height:34px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--muted);transition:.2s var(--ease);
+}
+.btn-icon:hover{color:var(--y);background:var(--y-soft)}
+
+/* ── MAIN ── */
+.main{
+  padding-top:calc(var(--hh) + var(--safe-top));
+  min-height:100dvh;max-width:600px;margin:0 auto;
+}
+.screen{display:none;padding:22px 18px calc(48px + var(--safe-bot));animation:fadeUp .28s ease}
+.screen.on{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── SCANNER SCREEN ── */
+.scan-hero{text-align:center;padding:20px 0 24px}
+.scan-title{
+  font-family:'Syne',sans-serif;font-size:26px;font-weight:800;
+  color:var(--y);letter-spacing:-1px;margin-bottom:6px;
+}
+.scan-sub{font-size:13px;color:var(--muted);line-height:1.5}
+
+/* camera */
+.cam-wrap{position:relative;margin-bottom:22px}
+.cam-box{
+  position:relative;width:100%;aspect-ratio:4/3;
+  background:#080808;border-radius:var(--r2);overflow:hidden;
+  border:1.5px solid var(--border);transition:.3s var(--ease);
+}
+.cam-box.live{border-color:var(--y);box-shadow:0 0 0 1px var(--y), 0 0 40px var(--y-glow)}
+.quagga-vp{position:absolute;inset:0;overflow:hidden;border-radius:var(--r2)}
+.quagga-vp video,.quagga-vp canvas{position:absolute!important;top:0;left:0;width:100%!important;height:100%!important;object-fit:cover}
+.ov-canvas{position:absolute;inset:0;pointer-events:none;border-radius:var(--r2)}
+
+/* corners */
+.corner{position:absolute;width:26px;height:26px;border-color:var(--y);border-style:solid;z-index:5}
+.tl{top:14px;left:14px;border-width:2.5px 0 0 2.5px;border-radius:4px 0 0 0}
+.tr{top:14px;right:14px;border-width:2.5px 2.5px 0 0;border-radius:0 4px 0 0}
+.bl{bottom:14px;left:14px;border-width:0 0 2.5px 2.5px;border-radius:0 0 0 4px}
+.br{bottom:14px;right:14px;border-width:0 2.5px 2.5px 0;border-radius:0 0 4px 0}
+
+.scan-line{
+  position:absolute;left:16px;right:16px;height:1.5px;
+  background:linear-gradient(90deg,transparent,var(--y),transparent);
+  top:50%;z-index:6;opacity:0;box-shadow:0 0 10px var(--y);
+}
+.cam-box.live .scan-line{opacity:1;animation:scanMove 2.2s ease-in-out infinite}
+@keyframes scanMove{0%,100%{top:18%}50%{top:82%}}
+
+.cam-status{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 2px 0;font-size:12px;color:var(--muted);
+}
+.s-dot{width:7px;height:7px;border-radius:50%;background:var(--dim);flex-shrink:0;transition:.3s}
+.cam-status.live .s-dot{background:var(--green);box-shadow:0 0 8px var(--green);animation:blink 2s infinite}
+.cam-status.err .s-dot{background:var(--red)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* cam-off placeholder */
+.cam-off{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:10px;
+  color:var(--dim);font-size:13px;
+}
+.cam-off svg{opacity:.3}
+
+/* manual */
+.divider{
+  display:flex;align-items:center;gap:10px;
+  color:var(--dim);font-size:11px;letter-spacing:1px;text-transform:uppercase;
+  margin:0 0 14px;
+}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.input-row{display:flex;gap:8px;margin-bottom:14px}
+.bc-input{
+  flex:1;height:50px;padding:0 16px;
+  background:var(--bg2);border:1.5px solid var(--border);
+  border-radius:var(--r);color:var(--text);font-size:16px;
+  letter-spacing:.5px;outline:none;transition:.2s var(--ease);
+}
+.bc-input::placeholder{color:var(--dim);font-size:13px;letter-spacing:0}
+.bc-input:focus{border-color:var(--y);background:var(--bg3)}
+.btn-search{
+  width:50px;height:50px;background:var(--y);color:#111;
+  border-radius:var(--r);display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:.15s var(--ease);font-size:18px;
+}
+.btn-search:hover{background:var(--y2);transform:scale(.97)}
+.btn-search:active{transform:scale(.92)}
+
+.btn-cam{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;height:44px;
+  border:1px solid var(--border);border-radius:var(--r);
+  font-size:13px;font-weight:500;color:var(--muted);
+  transition:.2s var(--ease);
+}
+.btn-cam:hover{border-color:var(--y);color:var(--y)}
+
+/* ── LOADING ── */
+.load-wrap{
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;min-height:62vh;gap:18px;text-align:center;
+}
+.load-ring{position:relative;width:76px;height:76px}
+.load-ring svg{width:76px;height:76px}
+.load-arc{
+  transform-origin:center;stroke:var(--y);
+  stroke-dasharray:188;stroke-dashoffset:188;stroke-linecap:round;
+  animation:arcSpin 1.5s ease-in-out infinite;
+}
+@keyframes arcSpin{
+  0%{stroke-dashoffset:188;transform:rotate(-90deg)}
+  50%{stroke-dashoffset:40}
+  100%{stroke-dashoffset:188;transform:rotate(270deg)}
+}
+.load-icon{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:22px}
+.load-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--y);letter-spacing:-.3px}
+.load-sub{font-size:12px;color:var(--muted)}
+.load-steps{display:flex;gap:20px;margin-top:4px}
+.lstep{display:flex;flex-direction:column;align-items:center;gap:5px;font-size:10px;color:var(--dim);letter-spacing:.5px;text-transform:uppercase}
+.lstep-dot{width:7px;height:7px;border-radius:50%;background:var(--dim);transition:.3s}
+.lstep-dot.on{background:var(--y);box-shadow:0 0 8px var(--y)}
+.lstep-dot.done{background:var(--green)}
+
+/* ── RESULT ── */
+.back-btn{
+  display:flex;align-items:center;gap:6px;
+  color:var(--muted);font-size:13px;margin-bottom:18px;
+  transition:.2s var(--ease);width:fit-content;
+}
+.back-btn:hover{color:var(--y)}
+
+/* product card */
+.prod-card{
+  background:var(--bg1);border:1px solid var(--border);
+  border-radius:var(--r2);padding:18px;margin-bottom:14px;
+  display:flex;gap:14px;align-items:flex-start;
+}
+.prod-img{
+  width:78px;height:78px;object-fit:contain;
+  border-radius:var(--r);background:var(--bg2);
+  border:1px solid var(--border);flex-shrink:0;
+  padding:4px;
+}
+.prod-img-ph{
+  width:78px;height:78px;border-radius:var(--r);
+  background:var(--bg2);border:1px solid var(--border);
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-size:28px;opacity:.4;
+}
+.prod-info{flex:1;min-width:0}
+.prod-name{font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:var(--text);line-height:1.25;margin-bottom:4px;word-break:break-word}
+.prod-brand{font-size:12px;color:var(--muted);margin-bottom:3px}
+.prod-qty{font-size:11px;color:var(--dim)}
+
+/* score */
+.score-card{
+  background:var(--bg1);border:1px solid var(--border);
+  border-radius:var(--r2);padding:20px;margin-bottom:14px;
+  display:flex;align-items:center;gap:20px;
+}
+.score-ring-w{position:relative;width:80px;height:80px;flex-shrink:0}
+.score-ring-w svg{width:80px;height:80px;transform:rotate(-90deg)}
+.score-track{stroke:#1e1e1e}
+.score-arc{
+  stroke:var(--y);stroke-linecap:round;
+  stroke-dasharray:201;stroke-dashoffset:201;
+  transition:stroke-dashoffset 1.2s var(--ease), stroke .5s ease;
+}
+.score-arc.excellent{stroke:var(--green)}
+.score-arc.good{stroke:var(--y)}
+.score-arc.moderate{stroke:var(--yellow)}
+.score-arc.poor{stroke:var(--orange)}
+.score-arc.bad{stroke:var(--red)}
+.score-num{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--text);
+  line-height:1;
+}
+.score-info{flex:1}
+.score-label-sm{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+.score-grade{font-family:'Syne',sans-serif;font-size:20px;font-weight:700;color:var(--y);margin-bottom:6px}
+.score-breakdown{display:flex;gap:8px;flex-wrap:wrap}
+.score-chip{
+  font-size:11px;padding:3px 9px;border-radius:var(--pill);
+  border:1px solid;font-weight:500;
+}
+.sc-green{background:var(--green-bg);border-color:rgba(110,250,170,.2);color:var(--green)}
+.sc-yellow{background:var(--yellow-bg);border-color:rgba(255,228,77,.2);color:var(--yellow)}
+.sc-red{background:var(--red-bg);border-color:rgba(255,79,79,.2);color:var(--red)}
+
+/* warnings */
+.incomplete-warn{
+  display:flex;align-items:center;gap:10px;
+  padding:11px 14px;background:rgba(255,140,66,.07);
+  border:1px solid rgba(255,140,66,.2);border-radius:var(--r);
+  font-size:12px;color:var(--orange);margin-bottom:12px;
+}
+.allergen-bar{
+  background:rgba(255,79,79,.06);border:1px solid rgba(255,79,79,.18);
+  border-radius:var(--r);padding:13px 14px;margin-bottom:14px;
+}
+.allergen-title{
+  display:flex;align-items:center;gap:7px;
+  font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:1px;color:var(--red);margin-bottom:9px;
+}
+.allergen-chips{display:flex;flex-wrap:wrap;gap:5px}
+.a-chip{
+  padding:3px 9px;background:var(--red-bg);
+  border:1px solid rgba(255,79,79,.25);border-radius:var(--pill);
+  font-size:11px;color:#ff8080;font-weight:600;
+}
+
+/* tabs */
+.tabs{
+  display:flex;gap:3px;background:var(--bg2);
+  border-radius:var(--r);padding:3px;margin-bottom:20px;
+}
+.tab{
+  flex:1;height:34px;border-radius:calc(var(--r) - 3px);
+  font-size:11px;font-weight:600;color:var(--muted);
+  transition:.2s var(--ease);white-space:nowrap;
+  font-family:'Syne',sans-serif;letter-spacing:.2px;
+}
+.tab.on{background:var(--y);color:#111}
+.tab:not(.on):hover{color:var(--text);background:var(--bg3)}
+.panel{display:none}
+.panel.on{display:block}
+
+/* section label */
+.sec-label{
+  font-size:10px;font-weight:600;text-transform:uppercase;
+  letter-spacing:1.2px;color:var(--dim);margin-bottom:12px;
+}
+
+/* overview */
+.card{
+  background:var(--bg1);border:1px solid var(--border);
+  border-radius:var(--r2);padding:18px;margin-bottom:14px;
+}
+.macro-wrap{display:flex;align-items:center;gap:18px}
+.macro-wrap canvas{width:130px!important;height:130px!important;flex-shrink:0}
+.macro-leg{flex:1;display:flex;flex-direction:column;gap:7px}
+.leg-row{display:flex;align-items:center;gap:8px;font-size:13px}
+.leg-dot{width:9px;height:9px;border-radius:3px;flex-shrink:0}
+.leg-name{flex:1;color:var(--muted);font-size:12px}
+.leg-val{font-size:12px;color:var(--text);font-weight:500}
+
+/* micro bars */
+.micro-row{margin-bottom:10px}
+.micro-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.micro-name{font-size:12px;color:var(--muted)}
+.micro-val{font-size:11px;color:var(--dim)}
+.micro-track{height:5px;background:var(--bg3);border-radius:var(--pill);overflow:hidden}
+.micro-fill{height:100%;border-radius:var(--pill);background:var(--y);width:0;transition:width 1s var(--ease)}
+.micro-fill.low{background:var(--red)}
+.micro-fill.mid{background:var(--yellow)}
+.micro-fill.good{background:var(--y)}
+.micro-fill.great{background:var(--green)}
+
+/* quick chips */
+.qi-wrap{display:flex;flex-wrap:wrap;gap:6px}
+.qi{
+  padding:5px 10px;border-radius:var(--pill);
+  font-size:11px;font-weight:500;border:1px solid;
+  display:flex;align-items:center;gap:4px;
+}
+.qi.green{background:var(--green-bg);border-color:rgba(110,250,170,.2);color:var(--green)}
+.qi.yellow{background:var(--yellow-bg);border-color:rgba(255,228,77,.2);color:var(--yellow)}
+.qi.red{background:var(--red-bg);border-color:rgba(255,79,79,.2);color:var(--red)}
+
+/* ingredients */
+.filt-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.filt{
+  padding:5px 12px;border:1px solid var(--border);
+  border-radius:var(--pill);font-size:11px;font-weight:500;
+  color:var(--muted);transition:.15s var(--ease);white-space:nowrap;
+}
+.filt.on{background:var(--y);border-color:var(--y);color:#111;font-weight:700}
+.filt:not(.on):hover{border-color:var(--y);color:var(--y)}
+
+.ing-list{display:flex;flex-direction:column;gap:8px}
+.ing-card{
+  background:var(--bg1);border:1px solid var(--border);
+  border-radius:var(--r);padding:13px 14px;
+  position:relative;overflow:hidden;
+  cursor:pointer;transition:.15s var(--ease);
+}
+.ing-card::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;
+  width:3px;background:var(--dim);transition:.2s;
+}
+.ing-card.green::before{background:var(--green)}
+.ing-card.yellow::before{background:var(--yellow)}
+.ing-card.red::before{background:var(--red)}
+.ing-card:hover{border-color:var(--border-y);transform:translateX(2px)}
+
+.ing-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.ing-tl{font-size:14px}
+.ing-name{flex:1;font-size:13px;font-weight:600;color:var(--text);word-break:break-word}
+.ing-enum{
+  font-size:10px;padding:2px 7px;background:var(--y-soft);
+  border:1px solid var(--border-y);border-radius:var(--pill);color:var(--y);
+}
+.ing-rating{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px}
+.ing-rating.green{color:var(--green)}
+.ing-rating.yellow{color:var(--yellow)}
+.ing-rating.red{color:var(--red)}
+.ing-desc{font-size:12px;color:var(--muted);line-height:1.5}
+.ing-thresh{
+  display:flex;align-items:flex-start;gap:7px;
+  padding:8px 10px;background:var(--bg2);border-radius:8px;
+  font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5;
+}
+
+/* nutrition */
+.nutr-table{
+  background:var(--bg1);border:1px solid var(--border);
+  border-radius:var(--r2);overflow:hidden;margin-bottom:14px;
+}
+.nutr-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:11px 16px;border-bottom:1px solid var(--border);
+  font-size:13px;transition:.15s;
+}
+.nutr-row:last-child{border-bottom:none}
+.nutr-row.hdr{
+  background:var(--bg2);font-size:10px;text-transform:uppercase;
+  letter-spacing:.8px;color:var(--dim);
+}
+.nutr-row.sub{padding-left:28px}
+.nutr-row:not(.hdr):hover{background:var(--bg2)}
+.nutr-k{color:var(--muted)}
+.nutr-v{font-weight:500;color:var(--text)}
+
+/* nutriscore */
+.ns-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px}
+.ns-title{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px}
+.ns-badges{display:flex;gap:4px}
+.ns-b{
+  width:40px;height:50px;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Syne',sans-serif;font-size:18px;font-weight:800;
+  color:#fff;opacity:.2;transition:.3s var(--ease);
+}
+.ns-b.on{opacity:1;transform:scale(1.18)}
+.ns-a{background:#2e7d32}.ns-b-g{background:#558b2f}
+.ns-c{background:#f9a825}.ns-d{background:#e65100}.ns-e{background:#b71c1c}
+
+/* science */
+.sci-intro{
+  font-size:12px;color:var(--muted);line-height:1.6;
+  padding:13px 14px;background:var(--y-soft);
+  border:1px solid var(--border-y);border-radius:var(--r);margin-bottom:16px;
+}
+.sci-cards{display:flex;flex-direction:column;gap:10px}
+.sci-card{
+  background:var(--bg1);border:1px solid var(--border);
+  border-radius:var(--r2);overflow:hidden;
+}
+.sci-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;cursor:pointer;transition:.15s;
+}
+.sci-hdr:hover{background:var(--bg2)}
+.sci-title-w{display:flex;align-items:center;gap:10px}
+.sci-tl{font-size:15px}
+.sci-nm{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--text)}
+.sci-sub{font-size:10px;color:var(--dim);margin-top:1px}
+.sci-arr{color:var(--dim);transition:transform .3s var(--ease)}
+.sci-card.open .sci-arr{transform:rotate(180deg)}
+.sci-body{max-height:0;overflow:hidden;transition:max-height .4s var(--ease)}
+.sci-card.open .sci-body{max-height:1200px}
+.sci-inner{padding:0 16px 16px}
+.sci-sec{font-size:9px;text-transform:uppercase;letter-spacing:1.3px;color:var(--y);margin:11px 0 5px;font-weight:600}
+.sci-txt{font-size:12px;color:var(--muted);line-height:1.7}
+.sci-ai-badge{
+  margin-top:10px;padding:5px 9px;background:var(--y-soft);
+  border-radius:6px;font-size:10px;color:var(--dim);display:inline-block;
+}
+
+/* pulse */
+.pulse{display:flex;align-items:center;gap:10px;padding:20px;color:var(--muted);font-size:12px}
+.dots{display:flex;gap:4px}
+.dots span{
+  width:6px;height:6px;border-radius:50%;background:var(--y);
+  animation:dotPulse 1.2s ease-in-out infinite;
+}
+.dots span:nth-child(2){animation-delay:.2s}
+.dots span:nth-child(3){animation-delay:.4s}
+@keyframes dotPulse{0%,80%,100%{transform:scale(.7);opacity:.4}40%{transform:scale(1);opacity:1}}
+
+/* history */
+.hist-hdr{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.hist-hdr h2{flex:1;font-family:'Syne',sans-serif;font-size:20px;font-weight:700;color:var(--y)}
+.btn-clear{
+  font-size:12px;color:var(--red);padding:5px 11px;
+  border:1px solid rgba(255,79,79,.2);border-radius:var(--pill);
+  transition:.15s;
+}
+.btn-clear:hover{background:var(--red-bg)}
+.hist-list{display:flex;flex-direction:column;gap:8px}
+.hist-empty{text-align:center;padding:60px 20px;color:var(--dim);font-size:13px}
+.hist-item{
+  display:flex;align-items:center;gap:12px;
+  padding:12px;background:var(--bg1);border:1px solid var(--border);
+  border-radius:var(--r);cursor:pointer;transition:.15s;
+}
+.hist-item:hover{border-color:var(--border-y)}
+.hist-img{width:46px;height:46px;object-fit:contain;border-radius:8px;background:var(--bg2);flex-shrink:0}
+.hist-info{flex:1;min-width:0}
+.hist-brand{font-size:11px;color:var(--muted);margin-bottom:1px}
+.hist-name{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hist-date{font-size:10px;color:var(--dim);margin-top:2px}
+.hist-score{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;flex-shrink:0;width:36px;text-align:center}
+
+/* toast */
+.toasts{
+  position:fixed;bottom:calc(20px + var(--safe-bot));
+  left:50%;transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:7px;
+  z-index:999;pointer-events:none;
+  width:min(380px, calc(100vw - 32px));
+}
+.toast{
+  padding:11px 16px;background:rgba(30,30,30,.95);
+  border:1px solid var(--border);border-radius:var(--pill);
+  font-size:12px;color:var(--text);
+  box-shadow:var(--shadow);backdrop-filter:blur(16px);
+  animation:tIn .25s ease;width:100%;text-align:center;
+}
+.toast.ok{border-color:rgba(110,250,170,.3)}
+.toast.err{border-color:rgba(255,79,79,.3)}
+.toast.warn{border-color:rgba(255,140,66,.3)}
+@keyframes tIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes tOut{from{opacity:1}to{opacity:0;transform:translateY(4px)}}
+.toast.out{animation:tOut .2s ease forwards}
+
+.hidden{display:none!important}
+.no-data{text-align:center;padding:28px 16px;color:var(--dim);font-size:12px}
+
+@media(max-width:380px){
+  .macro-wrap{flex-direction:column}
+  .macro-wrap canvas{width:110px!important;height:110px!important}
+}
+@media(min-width:600px){
+  .main{border-left:1px solid var(--border);border-right:1px solid var(--border)}
+}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-inner">
+    <div class="logo">
+      <div class="logo-badge">S</div>
+      <span class="logo-name">SnackCheck</span>
+    </div>
+    <div class="hdr-right">
+      <button class="btn-lang" id="langBtn">DE</button>
+      <button class="btn-icon" id="histBtn" title="Verlauf">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="main">
+
+  <!-- SCANNER -->
+  <section class="screen on" id="sScanner">
+    <div class="scan-hero">
+      <div class="scan-title" id="scanTitle">Barcode scannen</div>
+      <div class="scan-sub" id="scanSub">Kamera auf den Barcode richten oder Nummer eingeben</div>
+    </div>
+    <div class="cam-wrap">
+      <div class="cam-box" id="camBox">
+        <div class="scan-line"></div>
+        <div class="corner tl"></div><div class="corner tr"></div>
+        <div class="corner bl"></div><div class="corner br"></div>
+        <div id="qvp" class="quagga-vp"></div>
+        <canvas id="ovCanvas" class="ov-canvas"></canvas>
+        <div class="cam-off" id="camOff">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          <span id="camOffTxt">Kamera deaktiviert</span>
+        </div>
+      </div>
+      <div class="cam-status" id="camStatus">
+        <div class="s-dot"></div>
+        <span id="camTxt">Kamera wird aktiviert…</span>
+      </div>
+    </div>
+    <div class="divider"><span id="orTxt">oder</span></div>
+    <div class="input-row">
+      <input type="text" id="bcInput" class="bc-input" placeholder="Barcode-Nummer eingeben…" inputmode="numeric" maxlength="14"/>
+      <button class="btn-search" id="bcBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      </button>
+    </div>
+    <button class="btn-cam" id="camToggle">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      <span id="camToggleTxt">Kamera ein/aus</span>
+    </button>
+  </section>
+
+  <!-- LOADING -->
+  <section class="screen" id="sLoading">
+    <div class="load-wrap">
+      <div class="load-ring">
+        <svg viewBox="0 0 76 76"><circle cx="38" cy="38" r="32" fill="none" stroke="#1e1e1e" stroke-width="5"/><circle cx="38" cy="38" r="32" fill="none" stroke-width="5" class="load-arc"/></svg>
+        <span class="load-icon">🔬</span>
+      </div>
+      <div class="load-title" id="loadTxt">Produktdaten werden geladen…</div>
+      <div class="load-sub" id="loadSub">Inhaltsstoffe werden analysiert</div>
+      <div class="load-steps">
+        <div class="lstep" id="ls1"><div class="lstep-dot on"></div><span>OpenFoodFacts</span></div>
+        <div class="lstep" id="ls2"><div class="lstep-dot"></div><span id="ls2t">Inhaltsstoffe</span></div>
+        <div class="lstep" id="ls3"><div class="lstep-dot"></div><span id="ls3t">KI-Analyse</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RESULT -->
+  <section class="screen" id="sResult">
+    <button class="back-btn" id="backBtn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M5 12l7 7M5 12l7-7"/></svg>
+      <span id="backTxt">Zurück</span>
+    </button>
+
+    <div class="prod-card" id="prodCard">
+      <div class="prod-img-ph" id="prodImgPh">📦</div>
+      <img class="prod-img hidden" id="prodImg" alt=""/>
+      <div class="prod-info">
+        <div class="prod-name" id="prodName">—</div>
+        <div class="prod-brand" id="prodBrand">—</div>
+        <div class="prod-qty" id="prodQty"></div>
+      </div>
+    </div>
+
+    <div class="score-card" id="scoreCard">
+      <div class="score-ring-w">
+        <svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="32" fill="none" class="score-track" stroke-width="5"/><circle cx="40" cy="40" r="32" fill="none" stroke-width="5" class="score-arc" id="scoreArc"/></svg>
+        <div class="score-num" id="scoreNum">—</div>
+      </div>
+      <div class="score-info">
+        <div class="score-label-sm" id="scoreLbl">Health Score</div>
+        <div class="score-grade" id="scoreGrade">—</div>
+        <div class="score-breakdown" id="scoreBreak"></div>
+      </div>
+    </div>
+
+    <div class="incomplete-warn hidden" id="incWarn">
+      ⚠️ <span id="incWarnTxt">Unvollständige Daten – Analyse basiert auf verfügbaren Angaben</span>
+    </div>
+    <div class="allergen-bar hidden" id="algBar">
+      <div class="allergen-title">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+        <span id="algTitle">Allergene</span>
+      </div>
+      <div class="allergen-chips" id="algChips"></div>
+    </div>
+
+    <div class="tabs" id="tabBar">
+      <button class="tab on" data-tab="overview" id="t0">Übersicht</button>
+      <button class="tab" data-tab="ingredients" id="t1">Zutaten</button>
+      <button class="tab" data-tab="nutrition" id="t2">Nährwerte</button>
+      <button class="tab" data-tab="science" id="t3">Wissenschaft</button>
+    </div>
+
+    <!-- Overview -->
+    <div class="panel on" id="p-overview">
+      <div class="card">
+        <div class="sec-label" id="macroLbl">Makronährstoffe</div>
+        <div class="macro-wrap">
+          <canvas id="macroChart"></canvas>
+          <div class="macro-leg" id="macroLeg"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="sec-label" id="microLbl">Mikronährstoffe</div>
+        <div id="microBars"></div>
+      </div>
+      <div class="card">
+        <div class="sec-label" id="ingQLbl">Zutaten</div>
+        <div class="qi-wrap" id="qiWrap"></div>
+      </div>
+    </div>
+
+    <!-- Ingredients -->
+    <div class="panel" id="p-ingredients">
+      <div class="filt-row" id="filtRow">
+        <button class="filt on" data-f="all">Alle</button>
+        <button class="filt" data-f="green">🟢 Gut</button>
+        <button class="filt" data-f="yellow">🟡 Mäßig</button>
+        <button class="filt" data-f="red">🔴 Kritisch</button>
+        <button class="filt" data-f="additives">E-Nummern</button>
+      </div>
+      <div class="ing-list" id="ingList"></div>
+    </div>
+
+    <!-- Nutrition -->
+    <div class="panel" id="p-nutrition">
+      <div class="nutr-table" id="nutrTable"></div>
+      <div class="card" id="nsCard">
+        <div class="ns-wrap" id="nsWrap"></div>
+      </div>
+    </div>
+
+    <!-- Science -->
+    <div class="panel" id="p-science">
+      <div class="sci-intro" id="sciIntro">Wissenschaftliche Erklärungen zu den wichtigsten Inhaltsstoffen dieses Produkts.</div>
+      <div class="sci-cards" id="sciCards">
+        <div class="pulse"><div class="dots"><span></span><span></span><span></span></div><span id="sciLoadTxt">KI-Analyse wird erstellt…</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HISTORY -->
+  <section class="screen" id="sHistory">
+    <div class="hist-hdr">
+      <button class="back-btn" id="histBack" style="margin-bottom:0">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M5 12l7 7M5 12l7-7"/></svg>
+      </button>
+      <h2 id="histTitle">Verlauf</h2>
+      <button class="btn-clear" id="clearBtn" >Löschen</button>
+    </div>
+    <div class="hist-list" id="histList"></div>
+  </section>
+
+</main>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+// ════════════════════════════════════════════════════════
+// INGREDIENTS DATABASE
+// ════════════════════════════════════════════════════════
+const ING_DB = {
+  sucralose:{names:['sucralose','sukralose','e955'],eNumber:'E955',rating:'yellow',category:'sweetener',thresh:{de:'ADI: 15 mg/kg KG/Tag. Ab 7,5 mg/kg: Auswirkungen auf Darmmikrobiom beobachtet.',en:'ADI: 15 mg/kg body weight/day. From 7.5 mg/kg: gut microbiome effects observed.'},sci:{de:{disc:'1976 zufällig bei Tate & Lyle entdeckt – ein Chemiker verstand "test" als "taste".',abs:'Nur 15–20 % werden absorbiert und unverändert renal ausgeschieden. Rest gelangt in den Dickdarm.',eff:'Mögliche Veränderungen des Darmmikrobioms. 2023 von WHO als "möglicherweise krebserregend" bei sehr hohen Dosen eingestuft.'},en:{disc:'Discovered in 1976 at Tate & Lyle by accident – a chemist understood "test" as "taste".',abs:'Only 15–20% is absorbed, excreted unchanged. Remainder reaches the colon.',eff:'Possible gut microbiome changes. In 2023, WHO classified it as "possibly carcinogenic" at very high doses.'}}},
+  aspartam:{names:['aspartam','aspartame','e951'],eNumber:'E951',rating:'yellow',category:'sweetener',thresh:{de:'ADI: 40 mg/kg KG/Tag. 2023: IARC Gruppe 2B (möglicherweise krebserregend). Pflichthinweis bei PKU.',en:'ADI: 40 mg/kg body weight/day. 2023: IARC Group 2B. Mandatory warning for PKU.'},sci:{de:{disc:'1965 von James Schlatter zufällig entdeckt, als er seinen Finger ableckte.',abs:'Wird vollständig zu Phenylalanin, Asparaginsäure und Methanol abgebaut.',eff:'IARC stufte Aspartam 2023 als "möglicherweise krebserregend" ein – EFSA hält erlaubte Mengen für sicher.'},en:{disc:'Accidentally discovered in 1965 by James Schlatter who licked his finger.',abs:'Completely broken down to phenylalanine, aspartic acid, and methanol.',eff:'IARC classified aspartame as "possibly carcinogenic" in 2023 – EFSA considers approved amounts safe.'}}},
+  stevia:{names:['stevia','steviol','e960','rebaudiosid'],eNumber:'E960',rating:'green',category:'sweetener',thresh:{de:'ADI: 4 mg/kg KG/Tag. Gilt als sehr sicher.',en:'ADI: 4 mg/kg body weight/day. Considered very safe.'},sci:{de:{disc:'Jahrtausendelang von Guaraní-Indianern genutzt. Wissenschaftlich 1931 von Bridel & Lavielle isoliert.',abs:'Kaum im Dünndarm absorbiert. Darmbakterien spalten zu Steviol, das renal ausgeschieden wird.',eff:'Eine der sichersten Zuckeralternativen. Mögliche leicht blutdrucksenkende Wirkung.'},en:{disc:'Used for centuries by Guaraní natives. Scientifically isolated in 1931 by Bridel & Lavielle.',abs:'Barely absorbed in the small intestine. Gut bacteria cleave to steviol, renally excreted.',eff:'One of the safest sugar alternatives. Possible mild blood pressure lowering effect.'}}},
+  'natriumbenzoat':{names:['natriumbenzoat','sodium benzoate','e211'],eNumber:'E211',rating:'red',category:'preservative',thresh:{de:'ADI: 5 mg/kg KG/Tag. Mit Vitamin C → Benzol (Karzinogen). Hyperaktivität bei Kindern ab 45 mg/Tag.',en:'ADI: 5 mg/kg body weight/day. With vitamin C → benzene (carcinogen). Hyperactivity in children from 45 mg/day.'},sci:{de:{disc:'Benzoesäure 1556 von Nostradamus beschrieben. Als Natriumsalz seit dem 19. Jh. in Lebensmitteln.',abs:'Schnell absorbiert, in der Leber mit Glycin zu Hippursäure konjugiert.',eff:'Kann mit Ascorbinsäure zu Benzol reagieren. Southampton-Studie 2007 zeigte Verbindung zu Hyperaktivität bei Kindern.'},en:{disc:'Benzoic acid described by Nostradamus in 1556. Used as sodium salt since 19th century.',abs:'Rapidly absorbed, conjugated with glycine to hippuric acid in the liver.',eff:'Can react with ascorbic acid to form benzene. 2007 Southampton study showed link to hyperactivity in children.'}}},
+  lecithin:{names:['lecithin','lecithine','e322','sojalecithin','sonnenblumenlecithin'],eNumber:'E322',rating:'green',category:'emulsifier',thresh:{de:'Kein ADI (quantum satis). Sicher. Bei sehr hohem Konsum mögliche TMAO-Erhöhung.',en:'No ADI (quantum satis). Safe. At very high intake possible TMAO increase.'},sci:{de:{disc:'1845 von Gobley aus Eigelb isoliert. Name von griech. lekithos (Eigelb).',abs:'Wird zu Glycerophosphocholin und Fettsäuren gespalten. Cholin ist essenziell für Acetylcholin-Synthese.',eff:'Als Emulgator positiv bewertet. Natürliches Phospholipid das in allen Zellen vorkommt.'},en:{disc:'Isolated from egg yolk by Gobley in 1845. Name from Greek lekithos (egg yolk).',abs:'Broken down to glycerophosphocholine and fatty acids. Choline essential for acetylcholine synthesis.',eff:'Positively assessed as emulsifier. Natural phospholipid found in all cells.'}}},
+  glutamat:{names:['glutamat','natriumglutamat','msg','e621','mononatriumglutamat'],eNumber:'E621',rating:'yellow',category:'flavor',thresh:{de:'ADI: "nicht spezifiziert" (sicher). Bei empfindlichen Personen: Symptome ab ~3 g/Mahlzeit möglich.',en:'ADI: "not specified" (safe). In sensitive individuals: symptoms possible above ~3 g/meal.'},sci:{de:{disc:'1908 von Prof. Ikeda aus Algenbrühe isoliert. Erkannte dabei den "Umami"-Geschmack.',abs:'Natürliche Aminosäure, vollständig absorbiert. Wichtiger Energielieferant für Darmzellen.',eff:'Wissenschaftlich bei normalen Mengen sicher. Kommt natürlich in Tomaten, Parmesan, Pilzen vor.'},en:{disc:'Discovered in 1908 by Prof. Ikeda from seaweed broth. He identified the "umami" taste.',abs:'Natural amino acid, fully absorbed. Important energy source for intestinal cells.',eff:'Scientifically safe at normal amounts. Naturally found in tomatoes, parmesan, mushrooms.'}}},
+  zucker:{names:['zucker','sugar','saccharose','sucrose','glucose','fructose','dextrose'],eNumber:null,rating:'yellow',category:'sugar',thresh:{de:'WHO: max. 25 g freie Zucker/Tag. Über 50 g/Tag: erhöhtes Risiko für Adipositas, Diabetes Typ 2.',en:'WHO: max 25 g free sugars/day. Over 50 g/day: increased risk of obesity, type 2 diabetes.'},sci:{de:{disc:'Saccharose aus Zuckerrohr seit ~8000 v. Chr. Erste industrielle Raffination 18. Jahrhundert.',abs:'Durch Saccharase im Dünndarm zu Glucose und Fructose gespalten. Fructose primär in der Leber.',eff:'Bei hohem Konsum: Fettleber, Insulinresistenz, Karies. Leere Kalorien ohne Mikronährstoffe.'},en:{disc:'Sucrose from sugarcane since ~8000 BC. First industrial refining in 18th century.',abs:'Split by sucrase into glucose and fructose. Fructose primarily metabolized in liver.',eff:'High consumption: fatty liver, insulin resistance, dental caries. Empty calories with no micronutrients.'}}},
+  palmoel:{names:['palmöl','palm oil','palmfett'],eNumber:null,rating:'yellow',category:'fat',thresh:{de:'~50 % gesättigte Fettsäuren. Bei Raffination entstehen GE und 3-MCPD (potenzielle Karzinogene).',en:'~50% saturated fatty acids. Refining produces GE and 3-MCPD (potential carcinogens).'},sci:{de:{disc:'Aus Ölpalme (Elaeis guineensis). In Westafrika seit 5000 Jahren genutzt.',abs:'Gesättigte Fettsäuren vollständig absorbiert. Können LDL-Cholesterin erhöhen.',eff:'Kardiovaskuläre Risiken bei übermäßigem Konsum. Raffinierte Formen enthalten Kontaminanten.'},en:{disc:'From oil palm (Elaeis guineensis). Used in West Africa for 5000 years.',abs:'Saturated fatty acids fully absorbed. Can raise LDL cholesterol.',eff:'Cardiovascular risks with excessive consumption. Refined forms contain contaminants.'}}},
+  xanthan:{names:['xanthan','xanthangummi','e415'],eNumber:'E415',rating:'green',category:'stabilizer',thresh:{de:'Kein ADI. Sicher. Bei >15 g/Tag mögliche Blähungen.',en:'No ADI. Safe. At >15 g/day possible bloating.'},sci:{de:{disc:'Produziert von Xanthomonas campestris. In den 1950ern am USDA entwickelt.',abs:'Nicht verdaulich. Wirkt als löslicher Ballaststoff.',eff:'Einer der sichersten Lebensmittelzusatzstoffe.'},en:{disc:'Produced by Xanthomonas campestris. Developed at USDA in the 1950s.',abs:'Not digestible. Acts as soluble fiber.',eff:'One of the safest food additives.'}}},
+  tartrazin:{names:['tartrazin','tartrazine','e102'],eNumber:'E102',rating:'red',category:'colorant',thresh:{de:'ADI: 7,5 mg/kg. EU-Pflichtwarnung: "kann Aktivität bei Kindern beeinträchtigen". Kreuzreaktion mit Aspirin.',en:'ADI: 7.5 mg/kg. EU mandatory warning: "may have an adverse effect on activity in children". Cross-reaction with aspirin.'},sci:{de:{disc:'Synthetischer Azofarbstoff, erstmals 1884 hergestellt.',abs:'Teilweise zu aromatischen Aminen abgebaut (potenzielle Karzinogene).',eff:'McCann-Studie 2007: Verbindung zu Hyperaktivität. EU-Warnpflicht seit 2010.'},en:{disc:'Synthetic azo dye, first produced in 1884.',abs:'Partially broken down to aromatic amines (potential carcinogens).',eff:'McCann study 2007: link to hyperactivity. EU mandatory warning since 2010.'}}},
+  ascorbinsaeure:{names:['ascorbinsäure','ascorbic acid','vitamin c','e300','natriumascorbat','e301'],eNumber:'E300',rating:'green',category:'antioxidant',thresh:{de:'Kein ADI. Essenzielles Vitamin. In Kombi mit Natriumbenzoat: Benzolbildung möglich!',en:'No ADI. Essential vitamin. In combo with sodium benzoate: benzene formation possible!'},sci:{de:{disc:'1928 von Albert Szent-Györgyi isoliert. Nobelpreis 1937.',abs:'Aktiver Transport über SVCT-Transporter. Ab ~200 mg sinkt Bioverfügbarkeit.',eff:'Essenziell für Kollagen, Immunsystem, Eisenabsorption. Als E300 positiv bewertet.'},en:{disc:'Isolated in 1928 by Albert Szent-Györgyi. Nobel Prize 1937.',abs:'Active transport via SVCT transporters. Bioavailability drops above ~200 mg.',eff:'Essential for collagen, immune function, iron absorption. Positively assessed as E300.'}}},
+  maltodextrin:{names:['maltodextrin','maltodextrine'],eNumber:null,rating:'yellow',category:'carb',thresh:{de:'Kein ADI. Glykämischer Index 85–105 (höher als Glukose!). Kann pathogene Darmkeime fördern.',en:'No ADI. Glycemic index 85–105 (higher than glucose!). May promote pathogenic gut bacteria.'},sci:{de:{disc:'Stärkehydrolysat durch partielle Hydrolyse. Industriell seit den 1950ern.',abs:'Sehr schnell absorbiert – schneller als Zucker. Hohe Insulinausschüttung.',eff:'Trotz unschuldigem Namen: hoher GI, mögliche negative Mikrobiom-Effekte.'},en:{disc:'Starch hydrolysate by partial hydrolysis. Industrially used since the 1950s.',abs:'Very rapidly absorbed – faster than sugar. High insulin release.',eff:'Despite innocent name: high GI, possible negative microbiome effects.'}}},
+  zitronensaeure:{names:['zitronensäure','citric acid','e330','natriumcitrat','e331'],eNumber:'E330',rating:'green',category:'acid',thresh:{de:'ADI: nicht spezifiziert. Sicher. Übermäßige Mengen können Zahnschmelz angreifen.',en:'ADI: not specified. Safe. Excessive amounts may damage tooth enamel.'},sci:{de:{disc:'1784 von Carl Wilhelm Scheele aus Zitronensaft isoliert.',abs:'Vollständig im Citratzyklus metabolisiert (Krebszyklus).',eff:'Sehr sicher. Hohe natürliche Vorkommen. Kann Mineralresorption fördern.'},en:{disc:'Isolated from lemon juice in 1784 by Carl Wilhelm Scheele.',abs:'Fully metabolized in the citric acid cycle (Krebs cycle).',eff:'Very safe. High natural occurrence. Can promote mineral absorption.'}}},
+};
+
+const ALLERGEN_MAP = {de:{'en:gluten':'Gluten','en:wheat':'Weizen','en:eggs':'Eier','en:fish':'Fisch','en:peanuts':'Erdnüsse','en:soybeans':'Soja','en:milk':'Milch','en:nuts':'Schalenfrüchte','en:celery':'Sellerie','en:mustard':'Senf','en:sesame':'Sesam','en:sulphur-dioxide-and-sulphites':'Sulfit','en:lupin':'Lupine','en:molluscs':'Weichtiere','en:crustaceans':'Krebstiere'},en:{'en:gluten':'Gluten','en:wheat':'Wheat','en:eggs':'Eggs','en:fish':'Fish','en:peanuts':'Peanuts','en:soybeans':'Soy','en:milk':'Milk','en:nuts':'Tree nuts','en:celery':'Celery','en:mustard':'Mustard','en:sesame':'Sesame','en:sulphur-dioxide-and-sulphites':'Sulphites','en:lupin':'Lupin','en:molluscs':'Molluscs','en:crustaceans':'Crustaceans'}};
+
+// ════════════════════════════════════════════════════════
+// i18n
+// ════════════════════════════════════════════════════════
+const T = {
+  de:{scan_title:'Barcode scannen',scan_sub:'Kamera auf den Barcode richten oder Nummer eingeben',or:'oder',cam_off:'Kamera deaktiviert',cam_on:'Kamera aktiv',cam_err:'Kamera nicht verfügbar',cam_act:'Kamera wird aktiviert…',cam_toggle:'Kamera ein/aus',back:'Zurück',score_lbl:'Health Score',inc_warn:'Unvollständige Daten – Analyse basiert auf verfügbaren Angaben',allergens:'Allergene',tab0:'Übersicht',tab1:'Zutaten',tab2:'Nährwerte',tab3:'Wissenschaft',macro_lbl:'Makronährstoffe',micro_lbl:'Mikronährstoffe',ing_q:'Zutaten',f_all:'Alle',f_green:'🟢 Gut',f_yellow:'🟡 Mäßig',f_red:'🔴 Kritisch',f_add:'E-Nummern',sci_intro:'Wissenschaftliche Erklärungen zu den wichtigsten Inhaltsstoffen.',sci_load:'KI-Analyse wird erstellt…',sci_disc:'Entdeckung',sci_abs:'Absorption',sci_eff:'Gesundheit',sci_thresh:'Ab wann kritisch?',sci_nodata:'Nicht in unserer Datenbank – gilt als unbedenklich.',hist_title:'Verlauf',hist_clear:'Löschen',hist_empty:'Noch keine Scans',load1:'Produktdaten werden geladen…',load2:'Inhaltsstoffe werden analysiert',ls2:'Inhaltsstoffe',ls3:'KI-Analyse',nutr_per:'Pro 100g',nutr_e:'Energie',nutr_f:'Fett',nutr_sf:'davon gesättigt',nutr_c:'Kohlenhydrate',nutr_s:'davon Zucker',nutr_fib:'Ballaststoffe',nutr_p:'Protein',nutr_salt:'Salz',ns_lbl:'Nutri-Score',t_found:'✓ Produkt gefunden',t_err:'✗ Fehler beim Laden',t_nf:'✗ Produkt nicht gefunden',t_offline:'Keine Verbindung',no_ing:'Keine Zutatenliste verfügbar',no_micro:'Keine Mikronährstoffangaben',no_nutr:'Keine Nährwertangaben',grade_exc:'Ausgezeichnet',grade_good:'Gut',grade_mod:'Mäßig',grade_poor:'Schlecht',grade_bad:'Sehr schlecht',mac_fat:'Fett',mac_carb:'Kohlenhydrate',mac_prot:'Protein',mac_fib:'Ballaststoffe',rat_green:'Unbedenklich',rat_yellow:'Mäßig bedenklich',rat_red:'Kritisch'},
+  en:{scan_title:'Scan barcode',scan_sub:'Point camera at barcode or enter number',or:'or',cam_off:'Camera off',cam_on:'Camera active',cam_err:'Camera unavailable',cam_act:'Activating camera…',cam_toggle:'Toggle camera',back:'Back',score_lbl:'Health Score',inc_warn:'Incomplete data – analysis based on available info',allergens:'Allergens',tab0:'Overview',tab1:'Ingredients',tab2:'Nutrition',tab3:'Science',macro_lbl:'Macronutrients',micro_lbl:'Micronutrients',ing_q:'Ingredients',f_all:'All',f_green:'🟢 Safe',f_yellow:'🟡 Moderate',f_red:'🔴 Critical',f_add:'E-numbers',sci_intro:'Scientific explanations for key ingredients in this product.',sci_load:'AI analysis being generated…',sci_disc:'Discovery',sci_abs:'Absorption',sci_eff:'Health effects',sci_thresh:'When critical?',sci_nodata:'Not in our database – generally considered safe.',hist_title:'History',hist_clear:'Clear',hist_empty:'No scans yet',load1:'Loading product data…',load2:'Analyzing ingredients',ls2:'Ingredients',ls3:'AI Analysis',nutr_per:'Per 100g',nutr_e:'Energy',nutr_f:'Fat',nutr_sf:'of which saturated',nutr_c:'Carbohydrates',nutr_s:'of which sugars',nutr_fib:'Dietary fiber',nutr_p:'Protein',nutr_salt:'Salt',ns_lbl:'Nutri-Score',t_found:'✓ Product found',t_err:'✗ Error loading',t_nf:'✗ Product not found',t_offline:'No connection',no_ing:'No ingredient list available',no_micro:'No micronutrient data',no_nutr:'No nutrition data',grade_exc:'Excellent',grade_good:'Good',grade_mod:'Moderate',grade_poor:'Poor',grade_bad:'Very Poor',mac_fat:'Fat',mac_carb:'Carbohydrates',mac_prot:'Protein',mac_fib:'Fiber',rat_green:'Safe',rat_yellow:'Moderate concern',rat_red:'Critical',ns_lbl:'Nutri-Score'}
+};
+
+let lang = localStorage.getItem('sc-lang')||'de';
+const t = k => T[lang][k]||T.de[k]||k;
+
+function applyLang(){
+  document.documentElement.lang=lang;
+  document.getElementById('langBtn').textContent=lang.toUpperCase();
+  document.getElementById('scanTitle').textContent=t('scan_title');
+  document.getElementById('scanSub').textContent=t('scan_sub');
+  document.getElementById('orTxt').textContent=t('or');
+  document.getElementById('camToggleTxt').textContent=t('cam_toggle');
+  document.getElementById('camOffTxt').textContent=t('cam_off');
+  document.getElementById('backTxt').textContent=t('back');
+  document.getElementById('histBack').title=t('back');
+  document.getElementById('scoreLbl').textContent=t('score_lbl');
+  document.getElementById('incWarnTxt').textContent=t('inc_warn');
+  document.getElementById('algTitle').textContent=t('allergens');
+  document.getElementById('t0').textContent=t('tab0');
+  document.getElementById('t1').textContent=t('tab1');
+  document.getElementById('t2').textContent=t('tab2');
+  document.getElementById('t3').textContent=t('tab3');
+  document.getElementById('macroLbl').textContent=t('macro_lbl');
+  document.getElementById('microLbl').textContent=t('micro_lbl');
+  document.getElementById('ingQLbl').textContent=t('ing_q');
+  document.getElementById('sciIntro').textContent=t('sci_intro');
+  document.getElementById('sciLoadTxt').textContent=t('sci_load');
+  document.getElementById('histTitle').textContent=t('hist_title');
+  document.getElementById('clearBtn').textContent=t('hist_clear');
+  document.getElementById('loadTxt').textContent=t('load1');
+  document.getElementById('loadSub').textContent=t('load2');
+  document.getElementById('ls2t').textContent=t('ls2');
+  document.getElementById('ls3t').textContent=t('ls3');
+  // filters
+  const filts=document.querySelectorAll('.filt[data-f]');
+  const fkeys=['f_all','f_green','f_yellow','f_red','f_add'];
+  filts.forEach((f,i)=>{ if(fkeys[i]) f.textContent=t(fkeys[i]); });
+  document.getElementById('bcInput').placeholder=lang==='de'?'Barcode-Nummer eingeben…':'Enter barcode number…';
+}
+
+// ════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════
+let state={product:null,ingredients:[],score:null,loading:false,camActive:false,history:[]};
+let macroChart=null;
+
+// ════════════════════════════════════════════════════════
+// SCREEN ROUTER
+// ════════════════════════════════════════════════════════
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+  window.scrollTo({top:0,behavior:'smooth'});
+  if(id==='sScanner'&&!state.camActive) startCam();
+}
+
+// ════════════════════════════════════════════════════════
+// CAMERA
+// ════════════════════════════════════════════════════════
+function startCam(){
+  if(typeof Quagga==='undefined'){setCamStatus('err',t('cam_err'));return;}
+  setCamStatus('',t('cam_act'));
+  Quagga.init({
+    inputStream:{name:'Live',type:'LiveStream',target:document.getElementById('qvp'),
+      constraints:{width:{ideal:1280},height:{ideal:720},facingMode:'environment'},
+      area:{top:'15%',right:'10%',left:'10%',bottom:'15%'}},
+    locator:{patchSize:'medium',halfSample:true},
+    numOfWorkers:navigator.hardwareConcurrency||2,
+    frequency:10,
+    decoder:{readers:['ean_reader','ean_8_reader','upc_reader','upc_e_reader','code_128_reader']},
+    locate:true
+  },err=>{
+    if(err){setCamStatus('err',t('cam_err'));document.getElementById('camOff').style.display='flex';return;}
+    Quagga.start();
+    state.camActive=true;
+    document.getElementById('camBox').classList.add('live');
+    document.getElementById('camOff').style.display='none';
+    setCamStatus('live',t('cam_on'));
+    Quagga.onProcessed(onProcessed);
+    Quagga.onDetected(onDetected);
+  });
+}
+
+function stopCam(){
+  if(!state.camActive)return;
+  try{Quagga.offProcessed(onProcessed);Quagga.offDetected(onDetected);Quagga.stop();}catch(e){}
+  state.camActive=false;
+  document.getElementById('camBox').classList.remove('live');
+  document.getElementById('camOff').style.display='flex';
+  setCamStatus('',t('cam_off'));
+}
+
+let lastCode='',lastTime=0;
+function onDetected(r){
+  const code=r?.codeResult?.code;if(!code)return;
+  const now=Date.now();if(code===lastCode&&now-lastTime<2500)return;
+  lastCode=code;lastTime=now;
+  if(navigator.vibrate)navigator.vibrate([60,20,60]);
+  stopCam();lookup(code);
+}
+
+function onProcessed(r){
+  const cv=document.getElementById('ovCanvas');
+  const fr=document.getElementById('camBox');
+  if(!cv||!fr)return;
+  const ctx=cv.getContext('2d');
+  cv.width=fr.offsetWidth;cv.height=fr.offsetHeight;
+  ctx.clearRect(0,0,cv.width,cv.height);
+  if(!r)return;
+  if(r.box){Quagga.ImageDebug.drawPath(r.box,{x:0,y:1},ctx,{color:'#DCE775',lineWidth:2});}
+  if(r.codeResult?.code){Quagga.ImageDebug.drawPath(r.line,{x:'x',y:'y'},ctx,{color:'#6efaaa',lineWidth:3});}
+}
+
+function setCamStatus(cls,txt){
+  const el=document.getElementById('camStatus');
+  el.className='cam-status'+(cls?' '+cls:'');
+  document.getElementById('camTxt').textContent=txt;
+}
+
+// ════════════════════════════════════════════════════════
+// LOOKUP
+// ════════════════════════════════════════════════════════
+async function lookup(barcode){
+  if(state.loading)return;
+  state.loading=true;
+  show('sLoading');setStep(1);
+  try{
+    const res=await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}?fields=product_name,brands,quantity,image_front_small_url,ingredients_text,ingredients_text_de,ingredients_text_en,nutriments,nutriscore_grade,allergens_tags,nova_group`,{headers:{'User-Agent':'SnackCheck PWA/1.0'}});
+    if(!res.ok)throw new Error('http');
+    const data=await res.json();
+    if(data.status===0||!data.product)throw new Error('notfound');
+    const p=normalizeProduct(data.product,barcode);
+    setStep(2);
+    const ings=parseIngredients(p.ingredientsText);
+    state.ingredients=ings;
+    setStep(3);
+    const sc=calcScore(p,ings);
+    state.product=p;state.score=sc;
+    await delay(300);
+    show('sResult');
+    renderResult(p,ings,sc);
+    addHistory(p,sc);
+    toast(t('t_found'),'ok');
+  }catch(e){
+    if(e.message==='notfound')toast(t('t_nf'),'err');
+    else if(!navigator.onLine)toast(t('t_offline'),'err');
+    else toast(t('t_err'),'err');
+    show('sScanner');
+    setTimeout(()=>startCam(),400);
+  }finally{state.loading=false;}
+}
+
+function normalizeProduct(r,barcode){
+  const itxt=(lang==='de'?r.ingredients_text_de:r.ingredients_text_en)||r.ingredients_text||'';
+  const n=r.nutriments||{};
+  return{barcode,name:r.product_name||'',brand:r.brands||'',quantity:r.quantity||'',imageUrl:r.image_front_small_url||'',ingredientsText:itxt,
+    nutriments:{kcal:n['energy-kcal_100g']??null,kj:n['energy-kj_100g']??null,fat:n['fat_100g']??null,satfat:n['saturated-fat_100g']??null,carbs:n['carbohydrates_100g']??null,sugars:n['sugars_100g']??null,fiber:n['fiber_100g']??null,protein:n['proteins_100g']??null,salt:n['salt_100g']??null,vitC:n['vitamin-c_100g']??null,vitD:n['vitamin-d_100g']??null,ca:n['calcium_100g']??null,fe:n['iron_100g']??null,k:n['potassium_100g']??null,mg:n['magnesium_100g']??null},
+    ns:r.nutriscore_grade||null,nova:r.nova_group||null,allergens:r.allergens_tags||[],
+    hasIng:!!itxt,hasNutr:Object.keys(n).length>0};
+}
+
+// ════════════════════════════════════════════════════════
+// PARSE & ANALYZE INGREDIENTS
+// ════════════════════════════════════════════════════════
+function parseIngredients(raw){
+  if(!raw||!raw.trim())return[];
+  let text=raw.replace(/\[|\]/g,'').replace(/\*[^*]*\*/g,'').replace(/\s+/g,' ').trim();
+  const items=smartSplit(text);
+  return items.map(i=>i.trim()).filter(i=>i.length>1).map(analyzeIng).filter(Boolean);
+}
+
+function smartSplit(text){
+  const out=[];let depth=0,cur='';
+  for(const ch of text){
+    if(ch==='('||ch==='[')depth++;
+    else if(ch===')'||ch===']')depth--;
+    else if((ch===','||ch===';')&&depth===0){if(cur.trim())out.push(cur.trim());cur='';continue;}
+    cur+=ch;
+  }
+  if(cur.trim())out.push(cur.trim());
+  return out;
+}
+
+function analyzeIng(raw){
+  const clean=raw.replace(/\(.*?\)/g,'').replace(/\[.*?\]/g,'').replace(/\*+/g,'').trim().toLowerCase();
+  if(clean.length<2)return null;
+  const eNum=extractE(raw);
+  const db=lookupDB(clean);
+  const disp=cap(raw.replace(/\(.*?\)/g,'').replace(/\*+/g,'').trim());
+  if(db)return{raw,name:disp,eNumber:db.eNumber||eNum,rating:db.rating,isAdd:!!(db.eNumber||eNum),dbKey:db.key,sci:db.sci,thresh:db.thresh};
+  return{raw,name:disp,eNumber:eNum,rating:guessRating(eNum),isAdd:!!eNum,dbKey:null,sci:null,thresh:null};
+}
+
+function lookupDB(name){
+  for(const[key,d]of Object.entries(ING_DB)){
+    for(const alias of d.names){if(name.includes(alias)||alias.includes(name))return{key,...d};}
+  }
+  return null;
+}
+function extractE(t){const m=t.match(/\bE[-\s]?(\d{3,4}[a-z]?)\b/i);return m?`E${m[1].toUpperCase()}`:null;}
+function guessRating(e){
+  if(!e)return'green';const n=parseInt(e.replace('E',''));
+  if(n>=100&&n<=199)return'yellow';if(n>=200&&n<=299)return'yellow';
+  if(n>=300&&n<=399)return'green';if(n>=400&&n<=499)return'green';
+  if(n>=600&&n<=699)return'yellow';return'green';
+}
+
+// ════════════════════════════════════════════════════════
+// HEALTH SCORE
+// ════════════════════════════════════════════════════════
+function calcScore(p,ings){
+  let s=100;
+  const red=ings.filter(i=>i.rating==='red').length;
+  const yel=ings.filter(i=>i.rating==='yellow').length;
+  s-=red*8;s-=yel*3;
+  const ns={a:10,b:5,c:0,d:-8,e:-15};
+  if(p.ns)s+=ns[p.ns.toLowerCase()]??0;
+  const nv={1:5,2:0,3:-5,4:-15};
+  if(p.nova)s+=nv[p.nova]??0;
+  const n=p.nutriments;
+  if(n.sugars!==null)s-=Math.min(20,n.sugars*.4);
+  if(n.satfat!==null)s-=Math.min(15,n.satfat*.8);
+  if(n.salt!==null)s-=Math.min(15,n.salt*3);
+  if(n.fiber!==null)s+=Math.min(10,n.fiber*1.5);
+  if(n.protein!==null)s+=Math.min(8,n.protein*.3);
+  const adds=ings.filter(i=>i.isAdd).length;
+  if(adds>5)s-=(adds-5)*2;
+  s=Math.round(Math.max(0,Math.min(100,s)));
+  const grades=[{min:90,l:t('grade_exc'),c:'excellent'},{min:75,l:t('grade_good'),c:'good'},{min:55,l:t('grade_mod'),c:'moderate'},{min:35,l:t('grade_poor'),c:'poor'},{min:0,l:t('grade_bad'),c:'bad'}];
+  const g=grades.find(x=>s>=x.min)||grades[4];
+  return{score:s,label:g.l,cls:g.c};
+}
+
+// ════════════════════════════════════════════════════════
+// RENDER RESULT
+// ════════════════════════════════════════════════════════
+function renderResult(p,ings,sc){
+  // product
+  document.getElementById('prodName').textContent=p.name||'—';
+  document.getElementById('prodBrand').textContent=p.brand||'—';
+  document.getElementById('prodQty').textContent=p.quantity||'';
+  const img=document.getElementById('prodImg');
+  const ph=document.getElementById('prodImgPh');
+  if(p.imageUrl){img.src=p.imageUrl;img.classList.remove('hidden');ph.classList.add('hidden');
+    img.onerror=()=>{img.classList.add('hidden');ph.classList.remove('hidden');};}
+  else{img.classList.add('hidden');ph.classList.remove('hidden');}
+
+  // score
+  animScore(sc.score,sc.cls);
+  document.getElementById('scoreGrade').textContent=sc.label;
+  const sb=document.getElementById('scoreBreak');
+  const rc=ings.filter(i=>i.rating==='red').length;
+  const yc=ings.filter(i=>i.rating==='yellow').length;
+  const gc=ings.filter(i=>i.rating==='green').length;
+  sb.innerHTML=`<span class="score-chip sc-green">🟢 ${gc}</span><span class="score-chip sc-yellow">🟡 ${yc}</span><span class="score-chip sc-red">🔴 ${rc}</span>`;
+
+  // warnings
+  document.getElementById('incWarn').classList.toggle('hidden',p.hasIng&&p.hasNutr);
+
+  // allergens
+  const algs=(ALLERGEN_MAP[lang]||ALLERGEN_MAP.de);
+  const algList=p.allergens.map(a=>algs[a]||null).filter(Boolean);
+  const algBar=document.getElementById('algBar');
+  if(algList.length){
+    algBar.classList.remove('hidden');
+    document.getElementById('algChips').innerHTML=algList.map(a=>`<span class="a-chip">${esc(a)}</span>`).join('');
+  }else algBar.classList.add('hidden');
+
+  // tabs
+  activateTab('overview');
+
+  // overview
+  renderMacro(p.nutriments);
+  renderMicro(p.nutriments);
+  renderQI(ings);
+
+  // ingredients
+  renderIngs(ings);
+
+  // nutrition
+  renderNutr(p.nutriments);
+  renderNS(p.ns);
+
+  // science
+  renderSci(ings,p.name);
+}
+
+function animScore(score,cls){
+  const arc=document.getElementById('scoreArc');
+  const num=document.getElementById('scoreNum');
+  arc.className='score-arc '+cls;
+  const circ=201.06;
+  const off=circ-(score/100)*circ;
+  arc.style.strokeDashoffset=circ;
+  requestAnimationFrame(()=>{
+    arc.style.transition='stroke-dashoffset 1.3s cubic-bezier(0.4,0,0.2,1)';
+    arc.style.strokeDashoffset=off;
+  });
+  const dur=1000,start=Date.now();
+  const tick=()=>{
+    const e=Date.now()-start,p=Math.min(e/dur,1);
+    const ease=1-Math.pow(1-p,3);
+    num.textContent=Math.round(ease*score);
+    if(p<1)requestAnimationFrame(tick);else num.textContent=score;
+  };requestAnimationFrame(tick);
+}
+
+// ════════════════════════════════════════════════════════
+// MACRO CHART
+// ════════════════════════════════════════════════════════
+function renderMacro(n){
+  const canvas=document.getElementById('macroChart');
+  const leg=document.getElementById('macroLeg');
+  if(macroChart){macroChart.destroy();macroChart=null;}
+  const cols=['#ff8c42','#DCE775','#6efaaa','#4fc3f7'];
+  const keys=[['fat',t('mac_fat')],['carbs',t('mac_carb')],['protein',t('mac_prot')],['fiber',t('mac_fib')]];
+  const vals=keys.filter(([k])=>n[k]!==null&&n[k]>0);
+  if(!vals.length){canvas.parentElement.innerHTML=`<div class="no-data">${t('no_nutr')}</div>`;return;}
+  const data=vals.map(([k])=>n[k]);
+  const labels=vals.map(([,l])=>l);
+  const colors=vals.map((_,i)=>cols[i%cols.length]);
+  const total=data.reduce((a,b)=>a+b,0);
+  macroChart=new Chart(canvas,{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:colors,borderColor:'#161616',borderWidth:3,hoverOffset:6}]},options:{responsive:false,maintainAspectRatio:false,cutout:'70%',plugins:{legend:{display:false},tooltip:{backgroundColor:'#262626',borderColor:'rgba(220,231,117,.2)',borderWidth:1,titleColor:'#DCE775',bodyColor:'#888',padding:10,callbacks:{label:c=>` ${c.raw.toFixed(1)}g (${Math.round(c.raw/total*100)}%)`}}},animation:{animateRotate:true,duration:800,easing:'easeInOutQuart'}}});
+  leg.innerHTML=vals.map(([,l],i)=>`<div class="leg-row"><span class="leg-dot" style="background:${colors[i]}"></span><span class="leg-name">${esc(l)}</span><span class="leg-val">${data[i].toFixed(1)}g</span></div>`).join('');
+}
+
+// ════════════════════════════════════════════════════════
+// MICRO BARS
+// ════════════════════════════════════════════════════════
+const MICRO_CFG=[
+  {k:'vitC',rda:80,unit:'mg',f:1000,de:'Vitamin C',en:'Vitamin C'},
+  {k:'vitD',rda:5,unit:'µg',f:1e6,de:'Vitamin D',en:'Vitamin D'},
+  {k:'ca',rda:800,unit:'mg',f:1000,de:'Calcium',en:'Calcium'},
+  {k:'fe',rda:14,unit:'mg',f:1000,de:'Eisen',en:'Iron'},
+  {k:'k',rda:2000,unit:'mg',f:1000,de:'Kalium',en:'Potassium'},
+  {k:'mg',rda:375,unit:'mg',f:1000,de:'Magnesium',en:'Magnesium'},
+];
+function renderMicro(n){
+  const c=document.getElementById('microBars');
+  const rows=MICRO_CFG.filter(m=>n[m.k]!==null&&n[m.k]!==undefined).map(m=>{
+    const v=n[m.k]*m.f;const pct=Math.min(100,Math.round(v/m.rda*100));
+    const cls=pct>=75?'great':pct>=40?'good':pct>=15?'mid':'low';
+    return`<div class="micro-row"><div class="micro-top"><span class="micro-name">${m[lang]||m.de}</span><span class="micro-val">${v.toFixed(1)} ${m.unit} (${pct}%)</span></div><div class="micro-track"><div class="micro-fill ${cls}" data-w="${pct}" style="width:0%"></div></div></div>`;
+  });
+  if(!rows.length){c.innerHTML=`<div class="no-data">${t('no_micro')}</div>`;return;}
+  c.innerHTML=rows.join('');
+  requestAnimationFrame(()=>c.querySelectorAll('.micro-fill').forEach(b=>setTimeout(()=>{b.style.width=b.dataset.w+'%'},80)));
+}
+
+// ════════════════════════════════════════════════════════
+// QUICK INGREDIENTS (overview)
+// ════════════════════════════════════════════════════════
+function renderQI(ings){
+  const w=document.getElementById('qiWrap');
+  const show=ings.slice(0,18);
+  const chips=show.map(i=>`<span class="qi ${i.rating}">${getRatEmoji(i.rating)} ${esc(i.name)}${i.eNumber?` <small>${i.eNumber}</small>`:''}</span>`).join('');
+  const more=ings.length>18?`<span class="qi" style="opacity:.4;border-color:var(--border)">+${ings.length-18}</span>`:'';
+  w.innerHTML=chips+more;
+}
+
+// ════════════════════════════════════════════════════════
+// INGREDIENTS LIST
+// ════════════════════════════════════════════════════════
+function renderIngs(ings){
+  const list=document.getElementById('ingList');
+  if(!ings.length){list.innerHTML=`<div class="no-data">${t('no_ing')}</div>`;return;}
+  list.innerHTML=ings.map(buildIngCard).join('');
+}
+
+function buildIngCard(i){
+  const sci=i.sci?.[lang];
+  return`<div class="ing-card ${i.rating}">
+    <div class="ing-head">
+      <span class="ing-tl">${getRatEmoji(i.rating)}</span>
+      <span class="ing-name">${esc(i.name)}</span>
+      ${i.eNumber?`<span class="ing-enum">${i.eNumber}</span>`:''}
+    </div>
+    <div class="ing-rating ${i.rating}">${getRatLabel(i.rating)}</div>
+    ${sci?.eff?`<div class="ing-desc">${esc(sci.eff)}</div>`:''}
+    ${i.thresh?.[lang]?`<div class="ing-thresh"><span>⚠️</span><span>${esc(i.thresh[lang])}</span></div>`:''}
+  </div>`;
+}
+
+function filterIngs(f){
+  const ings=state.ingredients;
+  const filtered=f==='all'?ings:f==='additives'?ings.filter(i=>i.isAdd):ings.filter(i=>i.rating===f);
+  document.getElementById('ingList').innerHTML=filtered.length?filtered.map(buildIngCard).join(''):`<div class="no-data">${t('no_ing')}</div>`;
+}
+
+// ════════════════════════════════════════════════════════
+// NUTRITION TABLE
+// ════════════════════════════════════════════════════════
+function renderNutr(n){
+  const tbl=document.getElementById('nutrTable');
+  const fmtE=()=>{if(n.kcal!==null&&n.kj!==null)return`${Math.round(n.kj)} kJ / ${Math.round(n.kcal)} kcal`;if(n.kcal!==null)return`${Math.round(n.kcal)} kcal`;if(n.kj!==null)return`${Math.round(n.kj)} kJ`;return null;};
+  const fmt=(v,u)=>v!==null?`${v.toFixed(1)} ${u}`:null;
+  const rows=[{k:t('nutr_e'),v:fmtE(),sub:false},{k:t('nutr_f'),v:fmt(n.fat,'g'),sub:false},{k:t('nutr_sf'),v:fmt(n.satfat,'g'),sub:true},{k:t('nutr_c'),v:fmt(n.carbs,'g'),sub:false},{k:t('nutr_s'),v:fmt(n.sugars,'g'),sub:true},{k:t('nutr_fib'),v:fmt(n.fiber,'g'),sub:false},{k:t('nutr_p'),v:fmt(n.protein,'g'),sub:false},{k:t('nutr_salt'),v:fmt(n.salt,'g'),sub:false}].filter(r=>r.v);
+  if(!rows.length){tbl.innerHTML=`<div class="no-data">${t('no_nutr')}</div>`;return;}
+  tbl.innerHTML=`<div class="nutr-row hdr"><span class="nutr-k">${t('nutr_per')}</span><span class="nutr-v"></span></div>${rows.map(r=>`<div class="nutr-row${r.sub?' sub':''}"><span class="nutr-k">${esc(r.k)}</span><span class="nutr-v">${esc(r.v)}</span></div>`).join('')}`;
+}
+
+function renderNS(grade){
+  const w=document.getElementById('nsWrap');
+  if(!grade){w.innerHTML=`<div class="no-data">Nutri-Score N/A</div>`;return;}
+  const g=grade.toLowerCase();
+  const bs=[['a','ns-a','A'],['b','ns-b-g','B'],['c','ns-c','C'],['d','ns-d','D'],['e','ns-e','E']];
+  w.innerHTML=`<div class="ns-title">${t('ns_lbl')}</div><div class="ns-badges">${bs.map(([l,cl,lbl])=>`<div class="ns-b ${cl}${l===g?' on':''}">${lbl}</div>`).join('')}</div>`;
+}
+
+// ════════════════════════════════════════════════════════
+// SCIENCE CARDS
+// ════════════════════════════════════════════════════════
+async function renderSci(ings,prodName){
+  const c=document.getElementById('sciCards');
+  const notable=ings.filter(i=>i.dbKey||(i.isAdd&&['red','yellow'].includes(i.rating))).slice(0,8);
+  if(!notable.length){c.innerHTML=`<div class="no-data">${t('sci_nodata')}</div>`;return;}
+
+  c.innerHTML=notable.map((ing,i)=>`
+    <div class="sci-card" id="sc${i}">
+      <div class="sci-hdr" onclick="toggleSci(${i})">
+        <div class="sci-title-w">
+          <span class="sci-tl">${getRatEmoji(ing.rating)}</span>
+          <div><div class="sci-nm">${esc(ing.name)}</div>${ing.eNumber?`<div class="sci-sub">${ing.eNumber}</div>`:''}</div>
+        </div>
+        <svg class="sci-arr" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="sci-body"><div class="sci-inner" id="scb${i}">
+        <div class="pulse"><div class="dots"><span></span><span></span><span></span></div><span>${t('sci_load')}</span></div>
+      </div></div>
+    </div>`).join('');
+
+  // open first
+  toggleSci(0);
+
+  for(let i=0;i<notable.length;i++){
+    const ing=notable[i];
+    const body=document.getElementById(`scb${i}`);
+    if(ing.sci?.[lang]){
+      renderSciDB(body,ing);
+    }else{
+      try{
+        const ai=await fetchSciAI(ing.name,prodName);
+        if(ai)renderSciAI(body,ai);
+        else body.innerHTML=`<p class="sci-txt">${t('sci_nodata')}</p>`;
+      }catch{body.innerHTML=`<p class="sci-txt">${t('sci_nodata')}</p>`;}
+    }
+  }
+}
+
+function toggleSci(i){
+  const card=document.getElementById(`sc${i}`);
+  if(card)card.classList.toggle('open');
+}
+
+function renderSciDB(el,ing){
+  const s=ing.sci[lang];
+  el.innerHTML=`
+    ${s.disc?`<div class="sci-sec">${t('sci_disc')}</div><p class="sci-txt">${esc(s.disc)}</p>`:''}
+    ${s.abs?`<div class="sci-sec">${t('sci_abs')}</div><p class="sci-txt">${esc(s.abs)}</p>`:''}
+    ${s.eff?`<div class="sci-sec">${t('sci_eff')}</div><p class="sci-txt">${esc(s.eff)}</p>`:''}
+    ${ing.thresh?.[lang]?`<div class="sci-sec">${t('sci_thresh')}</div><p class="sci-txt" style="color:${ing.rating==='red'?'var(--red)':ing.rating==='yellow'?'var(--yellow)':'var(--muted)'}">${esc(ing.thresh[lang])}</p>`:''}`;
+}
+
+async function fetchSciAI(name,prod){
+  const sys=lang==='de'
+    ?'Du bist Ernährungswissenschaftler. Antworte NUR in JSON ohne Codeblöcke oder Präambel.'
+    :'You are a nutritional scientist. Reply ONLY in JSON without code blocks or preamble.';
+  const usr=lang==='de'
+    ?`Erkläre den Inhaltsstoff "${name}" aus Produkt "${prod}". JSON: {"disc":"1-2 Sätze Entdeckung","abs":"1-2 Sätze Absorption","eff":"1-2 Sätze Effekte","thresh":"1 Satz ab wann kritisch"}`
+    :`Explain ingredient "${name}" from product "${prod}". JSON: {"disc":"1-2 sentences discovery","abs":"1-2 sentences absorption","eff":"1-2 sentences effects","thresh":"1 sentence when critical"}`;
+  const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,system:sys,messages:[{role:'user',content:usr}]})});
+  if(!res.ok)throw new Error('api');
+  const d=await res.json();
+  const txt=d.content?.map(b=>b.text||'').join('')||'';
+  return JSON.parse(txt.replace(/```json\s*|```\s*/g,'').trim());
+}
+
+function renderSciAI(el,d){
+  el.innerHTML=`
+    ${d.disc?`<div class="sci-sec">${t('sci_disc')}</div><p class="sci-txt">${esc(d.disc)}</p>`:''}
+    ${d.abs?`<div class="sci-sec">${t('sci_abs')}</div><p class="sci-txt">${esc(d.abs)}</p>`:''}
+    ${d.eff?`<div class="sci-sec">${t('sci_eff')}</div><p class="sci-txt">${esc(d.eff)}</p>`:''}
+    ${d.thresh?`<div class="sci-sec">${t('sci_thresh')}</div><p class="sci-txt">${esc(d.thresh)}</p>`:''}
+    <span class="sci-ai-badge">✨ KI-generiert · Claude</span>`;
+}
+
+// ════════════════════════════════════════════════════════
+// HISTORY
+// ════════════════════════════════════════════════════════
+function loadHistory(){try{state.history=JSON.parse(localStorage.getItem('sc-history')||'[]');}catch{state.history=[];}}
+function addHistory(p,sc){
+  state.history=state.history.filter(h=>h.barcode!==p.barcode);
+  state.history.unshift({barcode:p.barcode,name:p.name,brand:p.brand,img:p.imageUrl,score:sc.score,cls:sc.cls,date:new Date().toISOString()});
+  state.history=state.history.slice(0,50);
+  localStorage.setItem('sc-history',JSON.stringify(state.history));
+}
+function renderHistory(){
+  const list=document.getElementById('histList');
+  if(!state.history.length){list.innerHTML=`<div class="hist-empty">${t('hist_empty')}</div>`;return;}
+  const sc=cls=>({excellent:'#6efaaa',good:'#DCE775',moderate:'#ffe44d',poor:'#ff8c42',bad:'#ff4f4f'}[cls]||'#777');
+  list.innerHTML=state.history.map(h=>`
+    <div class="hist-item" data-bc="${esc(h.barcode)}">
+      ${h.img?`<img class="hist-img" src="${esc(h.img)}" alt="" loading="lazy"/>`:`<div class="hist-img" style="display:flex;align-items:center;justify-content:center;font-size:22px">📦</div>`}
+      <div class="hist-info">
+        <div class="hist-brand">${esc(h.brand||'—')}</div>
+        <div class="hist-name">${esc(h.name||h.barcode)}</div>
+        <div class="hist-date">${fmtDate(h.date)}</div>
+      </div>
+      <div class="hist-score" style="color:${sc(h.cls)}">${h.score}</div>
+    </div>`).join('');
+  list.querySelectorAll('.hist-item').forEach(el=>el.addEventListener('click',()=>{show('sScanner');setTimeout(()=>lookup(el.dataset.bc),200);}));
+}
+
+// ════════════════════════════════════════════════════════
+// TABS
+// ════════════════════════════════════════════════════════
+function activateTab(id){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===id));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.id===`p-${id}`));
+}
+
+// ════════════════════════════════════════════════════════
+// LOADING STEPS
+// ════════════════════════════════════════════════════════
+function setStep(s){
+  for(let i=1;i<=3;i++){
+    const dot=document.querySelector(`#ls${i} .lstep-dot`);
+    if(!dot)continue;
+    dot.className='lstep-dot'+(i<s?' done':i===s?' on':'');
+  }
+}
+
+// ════════════════════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════════════════════
+function toast(msg,cls=''){
+  const c=document.getElementById('toasts');
+  const el=document.createElement('div');
+  el.className='toast'+(cls?' '+cls:'');
+  el.textContent=msg;
+  c.appendChild(el);
+  setTimeout(()=>{el.classList.add('out');setTimeout(()=>el.remove(),250);},3000);
+}
+
+// ════════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════════
+function getRatEmoji(r){return{green:'🟢',yellow:'🟡',red:'🔴'}[r]||'⚪';}
+function getRatLabel(r){return{green:t('rat_green'),yellow:t('rat_yellow'),red:t('rat_red')}[r]||'';}
+function cap(s){return s?s.charAt(0).toUpperCase()+s.slice(1):'';}
+function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):''}
+function delay(ms){return new Promise(r=>setTimeout(r,ms));}
+function fmtDate(iso){try{return new Date(iso).toLocaleDateString(lang==='de'?'de-DE':'en-GB',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}catch{return iso;}}
+
+// ════════════════════════════════════════════════════════
+// EVENTS
+// ════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded',()=>{
+  loadHistory();applyLang();
+
+  // lang toggle
+  document.getElementById('langBtn').addEventListener('click',()=>{
+    lang=lang==='de'?'en':'de';
+    localStorage.setItem('sc-lang',lang);
+    applyLang();
+    toast(lang==='de'?'🇩🇪 Deutsch':'🇬🇧 English','ok');
+    if(state.product&&document.getElementById('sResult').classList.contains('on'))
+      renderResult(state.product,state.ingredients,state.score);
+  });
+
+  // manual scan
+  document.getElementById('bcBtn').addEventListener('click',()=>{
+    const v=document.getElementById('bcInput').value.replace(/\D/g,'');
+    if(v.length>=8){stopCam();lookup(v);}
+    else toast(lang==='de'?'⚠️ Min. 8 Ziffern':'⚠️ Min. 8 digits','warn');
+  });
+  document.getElementById('bcInput').addEventListener('keydown',e=>{
+    if(e.key==='Enter'){const v=e.target.value.replace(/\D/g,'');if(v.length>=8){stopCam();lookup(v);}else toast(lang==='de'?'⚠️ Min. 8 Ziffern':'⚠️ Min. 8 digits','warn');}
+  });
+
+  // camera toggle
+  document.getElementById('camToggle').addEventListener('click',()=>{
+    if(state.camActive)stopCam();else startCam();
+  });
+
+  // back
+  document.getElementById('backBtn').addEventListener('click',()=>show('sScanner'));
+  document.getElementById('histBack').addEventListener('click',()=>show('sScanner'));
+
+  // history
+  document.getElementById('histBtn').addEventListener('click',()=>{renderHistory();show('sHistory');});
+  document.getElementById('clearBtn').addEventListener('click',()=>{
+    if(confirm(lang==='de'?'Verlauf löschen?':'Clear history?')){
+      state.history=[];localStorage.removeItem('sc-history');renderHistory();
+    }
+  });
+
+  // tabs
+  document.getElementById('tabBar').addEventListener('click',e=>{
+    const b=e.target.closest('.tab');if(b)activateTab(b.dataset.tab);
+  });
+
+  // filters
+  document.getElementById('filtRow').addEventListener('click',e=>{
+    const f=e.target.closest('.filt');if(!f)return;
+    document.querySelectorAll('.filt').forEach(x=>x.classList.remove('on'));
+    f.classList.add('on');filterIngs(f.dataset.f);
+  });
+
+  // auto-start camera
+  startCam();
+
+  // SW
+  if('serviceWorker' in navigator)
+    navigator.serviceWorker.register('./public/sw.js').catch(()=>{});
+});
+</script>
+</body>
+</html>
